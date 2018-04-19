@@ -1,0 +1,3 @@
+<launch>    
+    <include file="$(find ar_track_alvar)/launch/turtle_astra_ar.launch"/>
+</launch>
