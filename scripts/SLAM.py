@@ -4,14 +4,12 @@ from numpy import eye, zeros, cos, sin, array
 from numpy import linalg as la
 
 ## STATE PROPAGATION STEP
-
 def propagate_state(X, P, u, dt, R):
 
     M = len(X)
     N = (M-3)/3  # The number of landmarks currently in our state vector
 
     x = X[0:3]
-    print(x)
     v = u[0]
     omega = u[1]
 
@@ -43,3 +41,36 @@ def propagate_state(X, P, u, dt, R):
     return X, P
 
 
+## KALMAN UPDATE STEP
+def kalman_update(X, P, Z, R):
+    print("n_msmts: ", len(Z))
+
+    for z in Z:
+        p_r = X[0:2]
+        theta = X[2]
+        C = array([cos(theta), -sin(theta), sin(theta), cos(theta)]).reshape(2,2)
+        H_L = C.T
+
+        # Delta
+        p_z = z[0:2]
+        delta = (p_z - p_r).reshape(2,1)  # landmark global - robot global
+        z_est = C.T.dot(delta)
+
+        # residual
+        r = p_z - z_est
+        print('residual:', r)
+
+        # H map
+
+        # innovation
+
+        # Kalman gain
+
+        # residual
+
+        # Kalman state update
+
+        # Kalman covariance update
+
+
+    return X, P
