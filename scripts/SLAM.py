@@ -42,35 +42,45 @@ def propagate_state(X, P, u, dt, R):
 
 
 ## KALMAN UPDATE STEP
-def kalman_update(X, P, Z, R):
+def kalman_update(X, P, Z, pts, R):
+    """
+    X - state vector
+    P - Covariance matrix
+    Z - a LIST containing all the observed measurements
+    pts - a list containing the actual positions (global, known-map locations) -- We will want to get rid of this later
+    R - the measurement noise covariance matrix
+    """
     print("n_msmts: ", len(Z))
 
     for z in Z:
-        p_r = X[0:2]
-        theta = X[2]
-        C = array([cos(theta), -sin(theta), sin(theta), cos(theta)]).reshape(2,2)
+        p_r = X[0:2].reshape(2,1)
+        theta = X[2, 0]
+        C = array([[cos(theta), -sin(theta)],
+                   [sin(theta), cos(theta)]])
         H_L = C.T
 
         # Delta
-        p_z = z[0:2]
+        p_z = z[0:2].reshape(2,1)
+        print("PR: {} \t PZ: {}".format(p_r, p_z))
         delta = (p_z - p_r).reshape(2,1)  # landmark global - robot global
         z_est = C.T.dot(delta)
 
         # residual
         r = p_z - z_est
-        print('residual:', r)
 
         # H map
+        H = zeros(shape=(2, len(P)))
+        #H_R = -C.T.dot( array()all_pts, )
 
         # innovation
+        S = H.dot(P).dot(H.T) + R
 
         # Kalman gain
-
-        # residual
+        K = P.dot(H.T).dot(np.linalg.inv(S))
 
         # Kalman state update
+        X = X+K.dot(r)
 
         # Kalman covariance update
-
-
+        P = P - K.dot(H).dot(P)
     return X, P

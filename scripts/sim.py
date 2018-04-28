@@ -31,9 +31,11 @@ def get_covariance_ellipse(mu, sig, conf):
     return points
 
 def observe(x_true, pt_true, noise):
-    th = x_true[2]
+    th = x_true[2,0]
     R = array([[cos(th), -sin(th)],
                [sin(th), cos(th)]])
+    delta = pt_true[0:2].reshape(2,1) - x_true[0:2].reshape(2,1)
+    print('delta', delta)
     pt = R.T.dot(pt_true[0:2].reshape(2,1) - x_true[0:2].reshape(2,1))
     pt_noise = np.random.multivariate_normal(x_true[0:2, 0], noise).reshape(2,1)
     pt = pt+pt_noise
@@ -100,15 +102,18 @@ for step in range(n_steps):
     if step % update_rate ==0:
         # OBSERVE
         all_msmts = []
+        all_pts = []
         for i in range(n_map_pts):
-            if norm(map_pts[:, i] - x_true[0:1, 0]) < max_msmt_dist:
+            delta = map_pts[:, i].reshape(2,1) - x_true[0:2]
+            if norm(delta) < max_msmt_dist:
                 seen_pt[i] = 1;
                 msmt = observe(x_true, map_pts[:, i], Sig_pt)
                 # Measurements are both landmark location AND the id of the landmark!
                 msmt = np.append(msmt, i).reshape(3,1)
                 all_msmts.append(msmt) # append the measurement
+                all_pts.append(map_pts[:, i])
         # EKF update
-        X, P = kalman_update(X, P, all_msmts, Sig_pt)
+        X, P = kalman_update(X, P, all_msmts, all_pts, Sig_pt)
 
     ## PLOT SHIT
     #> plot true trajectory
