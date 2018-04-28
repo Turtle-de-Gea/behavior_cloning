@@ -31,8 +31,8 @@ def get_covariance_ellipse(mu, sig, conf):
     return points
 
 def observe(x_true, pt_true, noise):
-    #th = x_true[2,0]
-    th = 0
+    th = x_true[2,0]
+    assert(np.isscalar(th))
     x_true = x_true[0:2]
     print("robot position:", x_true.T)
     print("landmark position", pt_true.T)

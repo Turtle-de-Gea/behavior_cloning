@@ -54,15 +54,15 @@ def kalman_update(X, P, Z, pts, R):
     J = array([0, -1, 1, 0]).reshape(2,2)
 
     for i in range(len(Z)):
+        p_r = X[0:2].reshape(2,1)  # the (estimated) global position of the robot
+        theta = X[2, 0]
+        assert(np.isscalar(theta))
         zi = Z[i][0:2].reshape(2,1)  # the (known) measurement (relative position)
         p_l = pts[i].reshape(2,1)  # the (known) global position of the landmark
-        p_r = X[0:2].reshape(2,1)  # the (estimated) global position of the robot
         print("zi", zi.T)
         print("pl", p_l.T)
         print("pr(est)", p_r.T)
 
-        theta = X[2, 0]
-        theta = 0
         C = array([[cos(theta), -sin(theta)],
                    [sin(theta), cos(theta)]])
         H_L = C.T
