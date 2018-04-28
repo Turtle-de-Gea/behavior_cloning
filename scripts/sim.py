@@ -82,7 +82,7 @@ plt.axis((-8, 8, -3, 8))
 # robot pose
 plot, = ax.plot(x_true[0], x_true[1])
 # estimation ellipse
-elipse = get_covariance_ellipse(x_true[0:-1, 0].reshape(-1,1), Sig_n, 0.9)
+elipse = get_covariance_ellipse(x_true[0:-1, 0].reshape(-1,1), Sig_n, 0.95)
 plot2, = ax.plot(elipse[0,:], elipse[1,:], 'r')
 # landmarks
 plot3 = ax.scatter(map_pts[0,:], map_pts[1,:])
@@ -131,7 +131,7 @@ for step in range(n_steps):
     #> replot landmarks
 
     #> plot estimate ellipse
-    elipse = get_covariance_ellipse(X[0:2, 0].reshape(-1,1), P[0:2, 0:2], 0.9)
+    elipse = get_covariance_ellipse(X[0:2, 0].reshape(-1,1), P[0:2, 0:2], 0.95)
     plot2.set_data(elipse[0,:], elipse[1,:])
 
     plt.draw()
