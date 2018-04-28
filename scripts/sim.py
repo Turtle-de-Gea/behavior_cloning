@@ -35,7 +35,7 @@ def observe(x_true, pt_true, noise):
     R = array([[cos(th), -sin(th)],
                [sin(th), cos(th)]])
     delta = pt_true[0:2].reshape(2,1) - x_true[0:2].reshape(2,1)
-    print('delta', delta)
+    # print('delta', delta)
     pt = R.T.dot(pt_true[0:2].reshape(2,1) - x_true[0:2].reshape(2,1))
     pt_noise = np.random.multivariate_normal(x_true[0:2, 0], noise).reshape(2,1)
     pt = pt+pt_noise
@@ -53,7 +53,7 @@ dt=0.1
 
 nominal_u = array([[circle_rad *pi / n_steps /dt],[pi/n_steps/dt]])
 
-Sig_n = array([[0.1, 0.001],[0.001, 0.1]])
+Sig_n = array([[0.1, 0.01],[0.01, 0.1]])
 Sig_pt = array([[0.01, 0.001], [0.001, 0.01]])
 
 ## Initial state (True and estimate)
@@ -71,16 +71,15 @@ seen_pt = zeros(n_map_pts)
 
 
 ## INITIALIZE PLOTTING SHIT
-ax = plt.gca()
-plt.axis((-8, 8, -3, 8))
+# ax = plt.gca()
 # robot pose
-plot, = ax.plot(x_true[0], x_true[1])
+# plot, = ax.plot(x_true[0], x_true[1])
 # estimation ellipse
 elipse = get_covariance_ellipse(x_true[0:-1, 0].reshape(-1,1), Sig_n, 0.9)
-plot2, = ax.plot(elipse[0,:], elipse[1,:], 'r')
+# plot2, = ax.plot(elipse[0,:], elipse[1,:], 'r')
 # landmarks
-plot3 = ax.scatter(map_pts[0,:], map_pts[1,:])
-print(plot3)
+# plt.scatter(map_pts[0,:], map_pts[1,:])
+# print(plot3)
 
 cov_pts_x = []
 trajectory = x_true
@@ -98,10 +97,10 @@ for step in range(n_steps):
     ## PROPAGATE STATE ESTIMATE
     X, P = propagate_state(X, P, nominal_u, dt, Sig_n)
 
+    all_msmts = []
     ## SENSOR UPDATE
-    if step % update_rate ==0:
+    if (step+1) % update_rate == 0:
         # OBSERVE
-        all_msmts = []
         all_pts = []
         for i in range(n_map_pts):
             delta = map_pts[:, i].reshape(2,1) - x_true[0:2]
@@ -114,10 +113,28 @@ for step in range(n_steps):
                 all_pts.append(map_pts[:, i])
         # EKF update
         X, P = kalman_update(X, P, all_msmts, all_pts, Sig_pt)
+        # import ipdb; ipdb.set_trace()
 
     ## PLOT SHIT
+    # Setup
+    plt.clf()
+    plt.axis((-8, 8, -3, 8))
+
+    # Plot landmarks
+    plt.scatter(map_pts[0, seen_pt == 0], map_pts[1, seen_pt == 0], c='y', marker='x')
+    plt.scatter(map_pts[0, seen_pt == 1], map_pts[1, seen_pt == 1], c='g', marker='x')
+
+    # Plot msmts
+    th = x_true[2,0]
+    R = array([[cos(th), -sin(th)],
+               [sin(th), cos(th)]])
+    for msmt in all_msmts:
+        pt_m = R @ msmt[0:2,:] + x_true[0:2,:]
+        plt.plot([x_true[0], pt_m[0]], [x_true[1], pt_m[1]], 'g-')
+
     #> plot true trajectory
-    plot.set_data(trajectory[0,:], trajectory[1,:])
+    # plot.set_data(trajectory[0,:], trajectory[1,:])
+    plt.plot(trajectory[0,:], trajectory[1,:], 'b-')
 
     #> replot landmarks
 
@@ -125,10 +142,16 @@ for step in range(n_steps):
 
     #> plot estimate ellipse
     elipse = get_covariance_ellipse(X[0:2, 0].reshape(-1,1), P[0:2, 0:2], 0.9)
-    plot2.set_data(elipse[0,:], elipse[1,:])
+    # plot2.set_data(elipse[0,:], elipse[1,:])
+    plt.plot(elipse[0,:], elipse[1,:], 'r-')
+
+
+    ## Plot point feature estimates
+    # for i = 4:2:size(x_t)
+    #     pt = x_t(i:i+1);
+    #     pt_Sig = Sig_t(i:i+1,i:i+1);
+    #     pt_cov_pts = get_covariance_ellipse(pt, pt_Sig, 0.95);
+    #     plot(pt_cov_pts(1,:),pt_cov_pts(2,:),'r-');
 
     plt.draw()
     plt.pause(0.05)
-
-plt.plot(trajectory[0,:], trajectory[1,:])
-plt.show()
