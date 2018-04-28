@@ -31,14 +31,20 @@ def get_covariance_ellipse(mu, sig, conf):
     return points
 
 def observe(x_true, pt_true, noise):
-    th = x_true[2,0]
+    #th = x_true[2,0]
+    th = 0
+    x_true = x_true[0:2]
+    print("robot position:", x_true.T)
+    print("landmark position", pt_true.T)
+
     R = array([[cos(th), -sin(th)],
                [sin(th), cos(th)]])
     delta = pt_true[0:2].reshape(2,1) - x_true[0:2].reshape(2,1)
-    print('delta', delta)
-    pt = R.T.dot(pt_true[0:2].reshape(2,1) - x_true[0:2].reshape(2,1))
-    pt_noise = np.random.multivariate_normal(x_true[0:2, 0], noise).reshape(2,1)
-    pt = pt+pt_noise
+    print("delta", delta.T)
+    pt = R.T.dot(delta)
+    print("z", pt.T)
+    #pt_noise = np.random.multivariate_normal(x_true[0:2, 0], noise).reshape(2,1)
+    #pt = pt+pt_noise
     return pt.ravel().reshape(2,1)
 
 plt.ion()
@@ -104,14 +110,17 @@ for step in range(n_steps):
         all_msmts = []
         all_pts = []
         for i in range(n_map_pts):
-            delta = map_pts[:, i].reshape(2,1) - x_true[0:2]
+            map_pt = map_pts[:, i].reshape(2,1)
+            delta = map_pt - x_true[0:2]
             if norm(delta) < max_msmt_dist:
                 seen_pt[i] = 1;
-                msmt = observe(x_true, map_pts[:, i], Sig_pt)
+                msmt = observe(x_true, map_pt, Sig_pt)
                 # Measurements are both landmark location AND the id of the landmark!
+                all_pts.append(map_pt)
+                print(msmt)
                 msmt = np.append(msmt, i).reshape(3,1)
+                print(msmt)
                 all_msmts.append(msmt) # append the measurement
-                all_pts.append(map_pts[:, i])
         # EKF update
         X, P = kalman_update(X, P, all_msmts, all_pts, Sig_pt)
 
@@ -120,8 +129,6 @@ for step in range(n_steps):
     plot.set_data(trajectory[0,:], trajectory[1,:])
 
     #> replot landmarks
-
-
 
     #> plot estimate ellipse
     elipse = get_covariance_ellipse(X[0:2, 0].reshape(-1,1), P[0:2, 0:2], 0.9)

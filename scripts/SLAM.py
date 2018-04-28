@@ -51,27 +51,36 @@ def kalman_update(X, P, Z, pts, R):
     R - the measurement noise covariance matrix
     """
     print("n_msmts: ", len(Z))
+    J = array([0, -1, 1, 0]).reshape(2,2)
 
-    for z in Z:
-        p_r = X[0:2].reshape(2,1)
+    for i in range(len(Z)):
+        zi = Z[i][0:2].reshape(2,1)  # the (known) measurement (relative position)
+        p_l = pts[i].reshape(2,1)  # the (known) global position of the landmark
+        p_r = X[0:2].reshape(2,1)  # the (estimated) global position of the robot
+        print("zi", zi.T)
+        print("pl", p_l.T)
+        print("pr(est)", p_r.T)
+
         theta = X[2, 0]
+        theta = 0
         C = array([[cos(theta), -sin(theta)],
                    [sin(theta), cos(theta)]])
         H_L = C.T
 
         # Delta
-        p_z = z[0:2].reshape(2,1)
-        print("PR: {} \t PZ: {}".format(p_r, p_z))
-        delta = (p_z - p_r).reshape(2,1)  # landmark global - robot global
+        delta = (p_l - p_r).reshape(2,1)  # landmark global - robot global
         z_est = C.T.dot(delta)
 
         # residual
-        r = p_z - z_est
+        r = zi - z_est
+        print("residual", r)
 
         # H map
-        H = zeros(shape=(2, len(P)))
-        #H_R = -C.T.dot( array()all_pts, )
-
+        # H = zeros(shape=(2, len(P)))
+        A = - C.T
+        B = -C.T.dot(J.dot(delta))
+        H = np.concatenate((A, B), axis=1)
+        print(H)
         # innovation
         S = H.dot(P).dot(H.T) + R
 
