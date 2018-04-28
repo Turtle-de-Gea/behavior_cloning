@@ -58,8 +58,10 @@ seen_pt = zeros(shape=(1, n_map_pts))
 ax = plt.gca()
 plt.axis((-8, 8, -3, 8))
 plot, = ax.plot(x_true[0], x_true[1])
-elipse = get_covariance_ellipse(x_true[0:-1, 0], Sig_n, 0.9)
-plot2, = ax.plot(elipse[:,0], elipse[:,1], 'r')
+print(x_true[0:-1, 0])
+elipse = get_covariance_ellipse(x_true[0:-1, 0].reshape(-1,1), Sig_n, 0.9)
+print(elipse)
+plot2, = ax.plot(elipse[0,:], elipse[1,:], 'r')
 
 X_true = zeros(shape=(3,n_steps))
 cov_pts_x = []
@@ -75,10 +77,12 @@ for step in range(n_steps):
     # print(trajectory.shape)
     # print('x_true', x_true)
     plot.set_data(trajectory[0,:], trajectory[1,:])
-    plot2.set_data(elipse[:,0], elipse[:,1])
+
+    elipse = get_covariance_ellipse(x_true[0:-1, 0].reshape(-1,1), Sig_n, 0.9)
+    plot2.set_data(elipse[0,:], elipse[1,:])
 
     plt.draw()
-    plt.pause(0.01)
+    plt.pause(0.1)
     # X_true[:, step] = x_true
 
 plt.plot(trajectory[0,:], trajectory[1,:])
