@@ -8,15 +8,21 @@ from numpy.linalg import norm
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from SLAM import propagate_state
 
 def get_covariance_ellipse(mu, sig, conf):
+    print("SIG IS :", sig)
     n_pts = 100
     D, V = np.linalg.eig(sig);
+    print("D", D)
+    print("V", V)
     scale = chi2.ppf(conf, len(mu))
     axis_1 = V[:, 0]*sqrt(scale * D[0])
     axis_2 = V[:, 1]*sqrt(scale * D[1])
-    axis_1 = axis_1.reshape(-1,1)
-    axis_2 = axis_2.reshape(-1,1)
+    axis_1 = axis_1.reshape(2,1)
+    axis_2 = axis_2.reshape(2,1)
+    # print('ax1', axis_1)
+    # print('ax2',axis_2)
     points = zeros(shape=(2, n_pts));
     for i in range(n_pts):
         th = i / (n_pts-1) * 2 * pi
@@ -43,7 +49,7 @@ sig_pt = array([[0.01, 0.001], [0.001, 0.01]])
 ## Initial state (True and estimate)
 x_true = array([circle_rad, 0, pi/2]).reshape(3, 1)
 x_t = array([circle_rad, 0, pi/2]).reshape(3, 1)
-Sig_t = 0.01*np.eye(3)
+P = 0.01*np.eye(3)
 
 ## Generate Map Points
 map_pts = np.random.rand(2, n_map_pts)
@@ -69,6 +75,8 @@ print(plot3)
 cov_pts_x = []
 trajectory = x_true
 
+X = x_true
+
 for step in range(n_steps):
     ## PROPAGATE TRUE STATE
     u_true = nominal_u + np.random.multivariate_normal([0,0], Sig_n).reshape(-1,1)
@@ -78,7 +86,7 @@ for step in range(n_steps):
     trajectory = np.concatenate((trajectory, x_true), axis=1)
 
     ## PROPAGATE STATE ESTIMATE
-    pass
+    X, P = propagate_state(X, P, nominal_u, dt, Sig_n)
 
     ## SENSOR UPDATE
     all_msmts = []
@@ -96,13 +104,12 @@ for step in range(n_steps):
     #> plot true trajectory
     plot.set_data(trajectory[0,:], trajectory[1,:])
 
-    #> plot landmarks
-    #plot3.set_data(map_pts[0,:], map_pts[1,:])
+    #> replot landmarks
 
 
 
     #> plot estimate ellipse
-    elipse = get_covariance_ellipse(x_true[0:-1, 0].reshape(-1,1), Sig_n, 0.9)
+    elipse = get_covariance_ellipse(X[0:2, 0].reshape(-1,1), P[0:2, 0:2], 0.9)
     plot2.set_data(elipse[0,:], elipse[1,:])
 
     plt.draw()
