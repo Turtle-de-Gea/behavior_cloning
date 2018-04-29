@@ -51,6 +51,7 @@ class TrajectoryFollower:
         self.theta = zeros(2)  # robot theta estimate: [radians, degrees]
         self.quat = zeros(4)
         self.P = 0.01*eye(3)  # state uncertainty
+        self.R = array([[0.01, 0.001], [0.001, 0.01]])  # Measurement noise
         self.target, self.target_theta = zeros(2), [0.0, 0.0]
         self.setpoints = []
         self.sp_file = open("src/behavior_cloning/data/pol.txt", "r")
@@ -133,17 +134,17 @@ class TrajectoryFollower:
                 tag_poses.append(pl)
                 tag_orients.append(self.tag_msg[i].pose.pose.orientation)
                 # tag_ids.append(self.tag_msg[i].id)
-                tag_globals.append()
+                tag_globals.append(self.gtags[self.tag_msg[i].id])
 
             print(tag_poses)
-            print(tag_ids)
+            print(tag_globals)
             print("Found tags ", tag_ids)
             print("Tag poses: ", tag_poses)
 
-        X, P = kalman_update(self.X, self.P, )
+        X, P = kalman_update(self.X, self.P, tag_poses, tag_globals, self.R)
         X = X.ravel()
         self.pose[0] = X[0]
-        self.pose[1] = x[1]
+        self.pose[1] = X[1]
         self.theta[0] = X[2]
         self.P = P
 
