@@ -65,8 +65,8 @@ class TrajectoryFollower:
 
     @property
     def X(self):
-        ## construct X as is needed for input into SLAM functions
-        return np.append((self.pos, self.theta[0]), axis=0).reshape(3,1)
+        # construct X as is needed for input into SLAM functions
+        return np.append((self.pos, self.theta[0]), axis=0).reshape(3, 1)
 
     def getSetpoints(self):
         stream_ = self.sp_file.readlines()
@@ -80,8 +80,6 @@ class TrajectoryFollower:
         rospy.loginfo("initial pos: (%s, %s)", self.pos[0], self.pos[1])
         self.curr_sp_ptr += 1
 
-
-    # for real-time testing
     def imageCallBack(self, rgb_im):
         try:
             im_array = self.bridge.imgmsg_to_cv2(rgb_im, "bgr8")
@@ -92,8 +90,6 @@ class TrajectoryFollower:
         else:
             self.original = np.array(im_array)
 
-    # for real-time testing
-
     def OdometryCallback(self, odom_data):
         self.pos[0] = odom_data.pose.pose.position.x
         self.pos[1] = odom_data.pose.pose.position.y
@@ -102,7 +98,6 @@ class TrajectoryFollower:
         self.theta = [theta_t, theta_t * 180 / math.pi]
         self.makemove()
 
-    # for real-time testing
     def depthCallBack(self, d_im):
         try:
             d_array = self.bridge.imgmsg_to_cv2(d_im, "32FC1")
@@ -113,16 +108,14 @@ class TrajectoryFollower:
         else:
             self.depth = np.array(d_array)
 
-    # for real-time testing
     def tagPoseCallback(self, msg):
         if self.original is not None and self.depth is not None:
-            if msg.markers!=[]:
+            if msg.markers:
                 self.tag_msg = msg.markers
                 self.get_tag_poses()
 
             if self.bench_test:
                 self.showFrame(self.original, 'input_image')
-                #self.showFrame(self.depth, 'input_depth')
 
         if self.publish_image:
             msg_frame = CvBridge().cv2_to_imgmsg(self.original, encoding="bgr8")
@@ -136,9 +129,16 @@ class TrajectoryFollower:
                 tag_poses.append(self.tag_msg[i].pose.pose.position)
                 tag_orients.append(self.tag_msg[i].pose.pose.orientation)
                 tag_ids.append(self.tag_msg[i].id)
+            print(tag_poses)
+            print(tag_ids)
             print("Found tags ", tag_ids)
             print("Tag poses: ", tag_poses)
         X, P = kalman_update(self.X, self.P)
+        X = X.ravel()
+        self.pose[0] = X[0]
+        self.pose[1] = x[1]
+        self.theta[0] = X[2]
+        self.P = P
 
     def makemove(self):
         if self.curr_sp_ptr<9:
@@ -179,11 +179,10 @@ class TrajectoryFollower:
             self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
-    ###   For bench testing with dataset images ###############################
     def showFrame(self, frame, name):
         cv2.imshow(name, frame)
         cv2.waitKey(20)
- 
+
 if __name__ == '__main__':
         go = TrajectoryFollower()
     
