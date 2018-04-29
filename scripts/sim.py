@@ -2,6 +2,7 @@
 """
 Simulator for running SLAM -- simulate a simple 2d environment
 """
+from __future__ import print_function, division
 from numpy import pi, array, sin, cos, eye, zeros, matrix, sqrt
 from scipy.stats import chi2
 from numpy.linalg import norm
