@@ -138,7 +138,7 @@ for step in range(n_steps):
     R = array([[cos(th), -sin(th)],
                [sin(th), cos(th)]])
     for msmt in all_msmts:
-        pt_m = R @ msmt[0:2,:] + x_true[0:2,:]
+        pt_m = np.matmul(R, msmt[0:2,:]) + x_true[0:2,:]
         plt.plot([x_true[0], pt_m[0]], [x_true[1], pt_m[1]], 'g-')
 
     #> plot true trajectory
