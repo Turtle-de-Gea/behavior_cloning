@@ -97,6 +97,7 @@ class TrajectoryFollower:
         self.quat = odom_data.pose.pose.orientation
         _, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
         self.theta = [theta_t, theta_t * 180 / math.pi]
+	print ("Odometry is: ", self.pos[0:1], self.theta[1])
         self.makemove()
 
     def depthCallBack(self, d_im):
@@ -122,31 +123,34 @@ class TrajectoryFollower:
             msg_frame = CvBridge().cv2_to_imgmsg(self.original, encoding="bgr8")
             self.ProcessedRaw.publish(msg_frame)
 
+
     def get_tag_poses(self):
         if self.tag_msg is not None:
             N_tags = len(self.tag_msg)
-            tag_poses, tag_orients, tag_ids, tag_globals = [], [], [], = []
+            tag_poses, tag_orients, tag_ids, tag_globals = [], [], [], []
             for i in xrange(N_tags):
-                landmark_pose = self.tag_msg[i].pose.pose.position
-                lx = landmark_pose.z
-                ly = landmark_pose.x
-                pl = array([lx, ly]).reshape(2,1)
-                tag_poses.append(pl)
-                tag_orients.append(self.tag_msg[i].pose.pose.orientation)
-                # tag_ids.append(self.tag_msg[i].id)
-                tag_globals.append(self.gtags[self.tag_msg[i].id])
+		cur_tag_id = self.tag_msg[i].id
+		tag_ids.append(cur_tag_id)
+		if str(cur_tag_id) in self.G_tags.keys():
+		        landmark_pose = self.tag_msg[i].pose.pose.position
+		        lx = landmark_pose.z
+		        ly = landmark_pose.x
+		        pl = array([lx, ly]).reshape(2,1)
+		        tag_poses.append(pl)
+		        tag_orients.append(self.tag_msg[i].pose.pose.orientation)
+		        tag_globals.append(array(self.G_tags[str(cur_tag_id)]).reshape(2,1))
 
-            print(tag_poses)
-            print(tag_globals)
-            print("Found tags ", tag_ids)
-            print("Tag poses: ", tag_poses)
+            #print("Found tags ", tag_ids)
+            #print("Tag globals ", tag_globals)
+            #print("Tag poses: ", tag_poses)
 
         X, P = kalman_update(self.X, self.P, tag_poses, tag_globals, self.R)
         X = X.ravel()
-        self.pose[0] = X[0]
-        self.pose[1] = X[1]
-        self.theta[0] = X[2]
+        self.pos[0] = X[0]
+        self.pos[1] = X[1]
+        self.theta[0], self.theta[1] = X[2], X[2] * 180 / math.pi
         self.P = P
+	print ('Current state: ', self.pos[0:1], self.theta[1])
 
     def makemove(self):
         if self.curr_sp_ptr<9:
@@ -163,14 +167,14 @@ class TrajectoryFollower:
                     #print(self.target_theta)
                     base_cmd.angular.z = -np.sign(self.theta_dis)*min(0.2, np.abs(math.radians(self.theta_dis)))
                 else:
-                    print("here with ", np.abs(self.theta_dis))
+                    #print("here with ", np.abs(self.theta_dis))
                     self.curr_sp_ptr = 2
 
             else:
                 if(self.curr_sp_ptr==2 or np.abs(self.target_dis) > 0.05):
                     base_cmd.linear.x = min(0.2, self.target_dis)
                     base_cmd.angular.z = -np.sign(self.theta_dis)*min(0.01, np.abs(math.radians(self.theta_dis)))
-                    print(base_cmd.linear.x, base_cmd.angular.z)
+                    #print(base_cmd.linear.x, base_cmd.angular.z)
                     self.curr_sp_ptr = 3
 
 
@@ -184,7 +188,7 @@ class TrajectoryFollower:
                         self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
                         rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
                         self.curr_sp_ptr = 1
-            #self.cmd_pub.publish(base_cmd)
+            self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
     def showFrame(self, frame, name):

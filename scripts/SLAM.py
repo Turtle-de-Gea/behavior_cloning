@@ -50,7 +50,7 @@ def kalman_update(X, P, Z, pts, R):
     pts - a list containing the actual positions (global, known-map locations) -- We will want to get rid of this later
     R - the measurement noise covariance matrix
     """
-    print("n_msmts: ", len(Z))
+    #print("n_msmts: ", len(Z))
     J = array([0, -1, 1, 0]).reshape(2,2)
 
     for i in range(len(Z)):
@@ -59,9 +59,9 @@ def kalman_update(X, P, Z, pts, R):
         assert(np.isscalar(theta))
         zi = Z[i][0:2].reshape(2,1)  # the (known) measurement (relative position)
         p_l = pts[i].reshape(2,1)  # the (known) global position of the landmark
-        print("zi", zi.T)
-        print("pl", p_l.T)
-        print("pr(est)", p_r.T)
+        #print("zi", zi.T)
+        #print("pl", p_l.T)
+        #print("pr(est)", p_r.T)
 
         C = array([[cos(theta), -sin(theta)],
                    [sin(theta), cos(theta)]])
@@ -73,14 +73,14 @@ def kalman_update(X, P, Z, pts, R):
 
         # residual
         r = zi - z_est
-        print("residual", r)
+        #print("residual", r)
 
         # H map
         # H = zeros(shape=(2, len(P)))
         A = - C.T
         B = -C.T.dot(J.dot(delta))
         H = np.concatenate((A, B), axis=1)
-        print(H)
+        #print(H)
         # innovation
         S = H.dot(P).dot(H.T) + R
 
