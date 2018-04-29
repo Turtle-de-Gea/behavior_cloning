@@ -17,9 +17,6 @@ import numpy as np
 class TrajectoryFinder:
 	def __init__(self):
 		self.original, self.depth = None, None
-		self.lower = np.array([100, 10, 50], dtype = "uint8") #0,48,80
-		self.upper = np.array([200, 70, 100], dtype = "uint8") #20,255,255
-
 		self.bench_test, self.publish_image = True, False
 		rospy.init_node('turtle_leader', anonymous=True)
 
@@ -36,8 +33,12 @@ class TrajectoryFinder:
 			self.ProcessedRaw = rospy.Publisher('/follow/out_image', Image, queue_size=5)
 
 		self.pos, self.theta = np.zeros(3), 0.0
-		self.saver_file = open("src/behavior_cloning/data/tra.txt", "w+")
+		self.target = np.array([1.92, 0, 0])
+		self.saver_file = open("src/behavior_cloning/data/cmds.txt", "w+")
+		self.odom_file = open("src/behavior_cloning/data/odoms.txt", "w+")
 		self.curr_time = rospy.Time.now()
+
+		self.rate = rospy.Rate(10)
 
 		try:
 			rospy.spin()
@@ -77,17 +78,13 @@ class TrajectoryFinder:
 		
 
 	def OdometryCallback(self, odom_data):
-		vel_x = odom_data.twist.twist.linear.x
-		self.theta = odom_data.twist.twist.angular.z
-		c, s = np.cos(self.theta), np.sin(self.theta)
-		Rot = np.array(((c,-s, 0), (s, c, 0), (0, 0, 1)))
-		t = np.array([vel_x, 0, 0])
-		self.pos = self.pos + np.dot(Rot, t)
-		tra_info = str(vel_x) + ' ' + str(self.theta) + '\n'
-		if ((rospy.Time.now() - self.curr_time).to_sec() > 0.04):
-			self.curr_time = rospy.Time.now()
-			print ('saving at '+ str(self.curr_time.to_sec()) + ' : ' +  tra_info) 
-			#self.saver_file.write(tra_info)
+		self.pos[0] = odom_data.pose.pose.position.x
+		self.pos[1] = odom_data.pose.pose.position.y
+		self.pos[2] = odom_data.pose.pose.position.z
+		#print self.pos
+		#turtle_y = odom_data.pose.pose.position.y
+		odo_info = str(self.pos[0]) + ' ' + str(self.pos[1]) + ' ' + str(self.pos[2])+'\n'
+		#self.odom_file.write(odo_info)
 
 
 
@@ -101,43 +98,23 @@ class TrajectoryFinder:
 			print ('frame dropped, skipping tracking')
 		else:
 			self.depth = np.array(d_array)
-			
-	
-
-	def localize(self):
-		if self.tag_msg != None:
-			N_tags = len(self.tag_msg) 
-			tag_poses, tag_orients, tag_ids = [], [], []  	
-			for i in xrange(N_tags):
-				tag_poses.append(self.tag_msg[i].pose.pose.position)
-				tag_orients.append(self.tag_msg[i].pose.pose.orientation)
-				tag_ids.append(self.tag_msg[i].id)
-			print ("Found tags ", tag_ids)
-			print ("Tag poses: ", tag_poses)
 				
 
 	def makemove(self):
 		if self.tag_pose != None:
 			base_cmd = Twist()
 			base_cmd.linear.x = (self.tag_pose.z - 0.5)
-			base_cmd.angular.z = -self.tag_pose.x*4
-			tra_info = str(base_cmd.linear.x) + ' ' + str(base_cmd.angular.z) + '\n'
-			self.saver_file.write(tra_info)
-			self.cmd_pub.publish(base_cmd)
+			base_cmd.angular.z = -self.tag_pose.x*4			
+			
+			dt = (rospy.Time.now() - self.curr_time).to_sec()
+			self.curr_time = rospy.Time.now()
+			#self.cmd_pub.publish(base_cmd)
+			tra_info = str(base_cmd.linear.x) + ' ' + str(base_cmd.angular.z) + ' ' + str(dt) + '\n'
+			print ('saving '+ tra_info)		
+			#self.saver_file.write(tra_info)
 
 
-
-	##########################################################################
 	###   For bench testing with dataset images ###############################
 	def showFrame(self, frame, name):
 		cv2.imshow(name, frame)
 		cv2.waitKey(20)
-
-	# stream images from directory Dir_
-	def image_streamimg(self, Dir_):
-		from eval_utils import filter_dir
-		dirFiles = filter_dir(os.listdir(Dir_))
-		for filename in dirFiles:
-			self.original = cv2.imread(Dir_+filename)
-			self.ImageProcessor()
-	####################################################################################
