@@ -66,7 +66,7 @@ class TrajectoryFollower:
     @property
     def X(self):
         # construct X as is needed for input into SLAM functions
-        return np.append((self.pos, self.theta[0]), axis=0).reshape(3, 1)
+        return np.append(self.pos, self.theta[0]).reshape(3, 1)
 
     def getSetpoints(self):
         stream_ = self.sp_file.readlines()
@@ -133,12 +133,13 @@ class TrajectoryFollower:
             print(tag_ids)
             print("Found tags ", tag_ids)
             print("Tag poses: ", tag_poses)
-        X, P = kalman_update(self.X, self.P)
-        X = X.ravel()
-        self.pose[0] = X[0]
-        self.pose[1] = x[1]
-        self.theta[0] = X[2]
-        self.P = P
+
+        #X, P = kalman_update(self.X, self.P)
+        #X = X.ravel()
+        #self.pose[0] = X[0]
+        #self.pose[1] = x[1]
+        #self.theta[0] = X[2]
+        #self.P = P
 
     def makemove(self):
         if self.curr_sp_ptr<9:
@@ -169,14 +170,14 @@ class TrajectoryFollower:
                 else:
                     if len(self.setpoints)==0:
                         self.curr_sp_ptr = 9
-                    else
+                    else:
                         self.target[0], self.target[1] = self.setpoints.pop(0)
                         self.target_bearing = (self.target-self.pos)
                         theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
                         self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
                         rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
                         self.curr_sp_ptr = 1
-            self.cmd_pub.publish(base_cmd)
+            #self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
     def showFrame(self, frame, name):
