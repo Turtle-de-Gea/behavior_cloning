@@ -16,7 +16,6 @@ import numpy as np
 import math
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Quaternion
-
 from numpy import pi, array, sin, cos, eye, zeros, matrix, sqrt
 from scipy.stats import chi2
 from numpy.linalg import norm
@@ -24,7 +23,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from SLAM import propagate_state, kalman_update
-
 
 class TrajectoryFollower:
     def __init__(self):
@@ -49,10 +47,11 @@ class TrajectoryFollower:
         if self.publish_image:
             self.ProcessedRaw = rospy.Publisher('/follow/out_image', Image, queue_size=5)
 
-        self.pos = np.zeros(3)
-        self.theta = [0.0, 0.0 ] # radians, degrees
-        self.quat = np.zeros(4)
-        self.target, self.target_theta = np.zeros(3), [0.0, 0.0]
+        self.pos = zeros(2)  # robot x, y estimate
+        self.theta = zeros(2)  # robot theta estimate: [radians, degrees]
+        self.quat = zeros(4)
+        self.P = 0.01*eye(3)  # state uncertainty
+        self.target, self.target_theta = zeros(2), [0.0, 0.0]
         self.setpoints = []
         self.sp_file = open("src/behavior_cloning/data/pol.txt", "r")
         self.curr_sp_ptr = 0
@@ -66,11 +65,8 @@ class TrajectoryFollower:
 
     @property
     def X(self):
-        return None
-
-    @property
-    def P(self):
-        return None
+        ## construct X as is needed for input into SLAM functions
+        return np.append((self.pos, self.theta[0]), axis=0).reshape(3,1)
 
     def getSetpoints(self):
         stream_ = self.sp_file.readlines()
@@ -101,11 +97,9 @@ class TrajectoryFollower:
     def OdometryCallback(self, odom_data):
         self.pos[0] = odom_data.pose.pose.position.x
         self.pos[1] = odom_data.pose.pose.position.y
-        self.pos[2] = odom_data.pose.pose.position.z
         self.quat = odom_data.pose.pose.orientation
         _, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
         self.theta = [theta_t, theta_t * 180 / math.pi]
-        self.P = odom_data.pose.covariance
         self.makemove()
 
     # for real-time testing
@@ -144,7 +138,7 @@ class TrajectoryFollower:
                 tag_ids.append(self.tag_msg[i].id)
             print("Found tags ", tag_ids)
             print("Tag poses: ", tag_poses)
-        X, P = kalman_update(self.pose, self.P)
+        X, P = kalman_update(self.X, self.P)
 
 
     def makemove(self):
