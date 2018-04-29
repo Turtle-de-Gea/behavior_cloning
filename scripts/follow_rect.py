@@ -33,7 +33,7 @@ class TrajectoryFollower:
         self.i = 0
         self.vel = 0.2 # 2 m/s linear veocity
         self.STATES = {'0':'INIT', '1':'TURNING', '2':'FINISHED_TURNING', '3':'MOVING', '9':'DONE'}
-        print(self.STATES["0"])
+        self.G_tags = {'1': (1.777, 0.9755), '2': (2.0146, 0.8662),  '3': (2.5591, 0.5296),  '4': (2.5393, -1.0148), '5': (4.4995, 0.3613) }
 
         self.bridge = CvBridge()
         im_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.imageCallBack, queue_size=5)
