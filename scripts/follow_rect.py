@@ -126,7 +126,11 @@ class TrajectoryFollower:
             N_tags = len(self.tag_msg)
             tag_poses, tag_orients, tag_ids = [], [], []
             for i in xrange(N_tags):
-                tag_poses.append(self.tag_msg[i].pose.pose.position)
+                landmark_pose = self.tag_msg[i].pose.pose.position
+                lx = landmark_pose.z
+                ly = landmark_pose.x
+                pl = array([lx, ly]).reshape(2,1)
+                tag_poses.append(pl)
                 tag_orients.append(self.tag_msg[i].pose.pose.orientation)
                 tag_ids.append(self.tag_msg[i].id)
             print(tag_poses)
