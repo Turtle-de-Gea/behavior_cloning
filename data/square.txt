@@ -1,0 +1,16 @@
+Lets consider 4 corners of a square
+global (cm) frame m_g: (0, 0) (200, 0) (200, 88) (0, 88)
+robot frame m_r: (0, 0) (1.93, 0) (1.92, 0.82) (0, 0.82) 
+
+b = -0.0446
+a = 0.0099
+m_r = a*m_g + b
+e.g., 200*0.0099 - 0.0446 = 1.9354 
+therefore, m_g = (m_r-b)/a
+
+
+
+
+
+
+
