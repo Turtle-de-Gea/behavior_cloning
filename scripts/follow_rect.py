@@ -124,7 +124,7 @@ class TrajectoryFollower:
     def get_tag_poses(self):
         if self.tag_msg is not None:
             N_tags = len(self.tag_msg)
-            tag_poses, tag_orients, tag_ids = [], [], []
+            tag_poses, tag_orients, tag_ids, tag_globals = [], [], [], = []
             for i in xrange(N_tags):
                 landmark_pose = self.tag_msg[i].pose.pose.position
                 lx = landmark_pose.z
@@ -132,18 +132,20 @@ class TrajectoryFollower:
                 pl = array([lx, ly]).reshape(2,1)
                 tag_poses.append(pl)
                 tag_orients.append(self.tag_msg[i].pose.pose.orientation)
-                tag_ids.append(self.tag_msg[i].id)
+                # tag_ids.append(self.tag_msg[i].id)
+                tag_globals.append()
+
             print(tag_poses)
             print(tag_ids)
             print("Found tags ", tag_ids)
             print("Tag poses: ", tag_poses)
 
-        #X, P = kalman_update(self.X, self.P)
-        #X = X.ravel()
-        #self.pose[0] = X[0]
-        #self.pose[1] = x[1]
-        #self.theta[0] = X[2]
-        #self.P = P
+        X, P = kalman_update(self.X, self.P, )
+        X = X.ravel()
+        self.pose[0] = X[0]
+        self.pose[1] = x[1]
+        self.theta[0] = X[2]
+        self.P = P
 
     def makemove(self):
         if self.curr_sp_ptr<9:
