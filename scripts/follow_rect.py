@@ -140,7 +140,6 @@ class TrajectoryFollower:
             print("Tag poses: ", tag_poses)
         X, P = kalman_update(self.X, self.P)
 
-
     def makemove(self):
         if self.curr_sp_ptr<9:
             # calculate control input
@@ -153,7 +152,7 @@ class TrajectoryFollower:
             # turning
             if self.curr_sp_ptr==1:
                 if np.abs(self.theta_dis) > 2:
-                    #print self.target_theta
+                    #print(self.target_theta)
                     base_cmd.angular.z = -np.sign(self.theta_dis)*min(0.2, np.abs(math.radians(self.theta_dis)))
                 else:
                     print("here with ", np.abs(self.theta_dis))
@@ -163,7 +162,7 @@ class TrajectoryFollower:
                 if(self.curr_sp_ptr==2 or np.abs(self.target_dis) > 0.05):
                     base_cmd.linear.x = min(0.2, self.target_dis)
                     base_cmd.angular.z = -np.sign(self.theta_dis)*min(0.01, np.abs(math.radians(self.theta_dis)))
-                    print base_cmd.linear.x, base_cmd.angular.z
+                    print(base_cmd.linear.x, base_cmd.angular.z)
                     self.curr_sp_ptr = 3
 
 
