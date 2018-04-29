@@ -8,7 +8,7 @@ from numpy.linalg import norm
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-from SLAM import propagate_state, kalman_update
+from KF_update import propagate_state, kalman_update
 
 def get_covariance_ellipse(mu, sig, conf):
     #print("SIG IS :", sig)
