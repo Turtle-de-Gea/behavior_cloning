@@ -22,7 +22,7 @@ from numpy.linalg import norm
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-from SLAM import propagate_state, kalman_update
+from KF_update import kalman_update
 
 class TrajectoryFollower:
     def __init__(self):
@@ -97,7 +97,7 @@ class TrajectoryFollower:
         self.quat = odom_data.pose.pose.orientation
         _, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
         self.theta = [theta_t, theta_t * 180 / math.pi]
-	print ("Odometry is: ", self.pos[0:1], self.theta[1])
+	#print ("Odometry is: ", self.pos[0:2], self.theta[1])
         self.makemove()
 
     def depthCallBack(self, d_im):
@@ -150,7 +150,7 @@ class TrajectoryFollower:
         self.pos[1] = X[1]
         self.theta[0], self.theta[1] = X[2], X[2] * 180 / math.pi
         self.P = P
-	print ('Current state: ', self.pos[0:1], self.theta[1])
+	#print ('Current state: ', self.pos[0:2], self.theta[1])
 
     def makemove(self):
         if self.curr_sp_ptr<9:
@@ -188,7 +188,7 @@ class TrajectoryFollower:
                         self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
                         rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
                         self.curr_sp_ptr = 1
-            self.cmd_pub.publish(base_cmd)
+            #self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
     def showFrame(self, frame, name):

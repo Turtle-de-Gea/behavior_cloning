@@ -59,9 +59,9 @@ def kalman_update(X, P, Z, pts, R):
         assert(np.isscalar(theta))
         zi = Z[i][0:2].reshape(2,1)  # the (known) measurement (relative position)
         p_l = pts[i].reshape(2,1)  # the (known) global position of the landmark
-        #print("zi", zi.T)
-        #print("pl", p_l.T)
-        #print("pr(est)", p_r.T)
+        print("zi", zi.T)
+        print("pl", p_l.T)
+        print("pr(est)", p_r.T)
 
         C = array([[cos(theta), -sin(theta)],
                    [sin(theta), cos(theta)]])
