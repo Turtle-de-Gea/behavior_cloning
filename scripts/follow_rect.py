@@ -50,7 +50,7 @@ class TrajectoryFollower:
         self.pos = zeros(2)  # robot x, y estimate
         self.theta = zeros(2)  # robot theta estimate: [radians, degrees]
         self.quat = zeros(4)
-        self.P = 0.01*eye(3)  # state uncertainty
+        self.P = 999999999999*eye(3)  # state uncertainty
         self.R = array([[0.01, 0.001], [0.001, 0.01]])  # Measurement noise
         self.target, self.target_theta = zeros(2), [0.0, 0.0]
         self.setpoints = []
@@ -92,12 +92,31 @@ class TrajectoryFollower:
             self.original = np.array(im_array)
 
     def OdometryCallback(self, odom_data):
+        now = rospy.Time.now
+        dt =  now - self.curr_time
+        self.cur_time = now
+
+        v, omega = self.cur_ctrl
         self.pos[0] = odom_data.pose.pose.position.x
         self.pos[1] = odom_data.pose.pose.position.y
         self.quat = odom_data.pose.pose.orientation
         _, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
         self.theta = [theta_t, theta_t * 180 / math.pi]
-	#print ("Odometry is: ", self.pos[0:2], self.theta[1])
+	    #print ("Odometry is: ", self.pos[0:2], self.theta[1])
+        x = self.X.ravel()
+        F = array([[1, 0, -v*dt*sin(x[2])],
+                             [0, 1, v*dt*cos(x[2])],
+                             [0, 0, 1]])
+
+        # G, like F, is for zeroing out terms in our state vector
+        G = array([[-dt*cos(x[2]), 0],
+                   [-dt*sin([x[2]]), 0],
+                   [0, -dt]])
+
+        A = F.dot(P).dot(F.T)
+        B = G.dot(R).dot(G.T)
+        P = A+B
+        self.P = P
         self.makemove()
 
     def depthCallBack(self, d_im):
@@ -150,7 +169,7 @@ class TrajectoryFollower:
         self.pos[1] = X[1]
         self.theta[0], self.theta[1] = X[2], X[2] * 180 / math.pi
         self.P = P
-	#print ('Current state: ', self.pos[0:2], self.theta[1])
+	    #print ('Current state: ', self.pos[0:2], self.theta[1])
 
     def makemove(self):
         if self.curr_sp_ptr<9:
@@ -188,7 +207,8 @@ class TrajectoryFollower:
                         self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
                         rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
                         self.curr_sp_ptr = 1
-            #self.cmd_pub.publish(base_cmd)
+            self.cmd_pub.publish(base_cmd)
+            self.cur_ctrl = [base_cmd.linar.x, base_cmd.angular.z]
             self.r.sleep()
 
     def showFrame(self, frame, name):
