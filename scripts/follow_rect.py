@@ -33,6 +33,7 @@ class TrajectoryFollower:
         self.i = 0
         self.vel = 0.2 # 2 m/s linear veocity
         self.STATES = {'0':'INIT', '1':'TURNING', '2':'FINISHED_TURNING', '3':'MOVING', '9':'DONE'}
+	self.initialized = False
         self.G_tags = {'1': (1.777, 0.9755), '2': (2.0146, 0.8662),  '3': (2.5591, 0.5296),  '4': (2.5393, -1.0148), '5': (4.4995, 0.3613) }
 
         self.bridge = CvBridge()
@@ -55,7 +56,7 @@ class TrajectoryFollower:
         self.target, self.target_theta = zeros(2), [0.0, 0.0]
         self.setpoints = []
         self.sp_file = open("src/behavior_cloning/data/pol.txt", "r")
-        self.curr_sp_ptr = 0
+        self.curr_sp_ptr = 10
         self.getSetpoints()
 
         self.curr_time = rospy.Time.now()
@@ -79,7 +80,7 @@ class TrajectoryFollower:
         self.pos[0], self.pos[1] = self.setpoints.pop(0)
         rospy.loginfo("Loaded setpoints %s", str(self.setpoints))
         rospy.loginfo("initial pos: (%s, %s)", self.pos[0], self.pos[1])
-        self.curr_sp_ptr += 1
+     
 
     def imageCallBack(self, rgb_im):
         try:
@@ -92,13 +93,12 @@ class TrajectoryFollower:
             self.original = np.array(im_array)
 
     def OdometryCallback(self, odom_data):
-        self.pos[0] = odom_data.pose.pose.position.x
-        self.pos[1] = odom_data.pose.pose.position.y
-        self.quat = odom_data.pose.pose.orientation
-        _, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
-        self.theta = [theta_t, theta_t * 180 / math.pi]
-	#print ("Odometry is: ", self.pos[0:2], self.theta[1])
-        self.makemove()
+	self.pos[0] = odom_data.pose.pose.position.x
+	self.pos[1] = odom_data.pose.pose.position.y
+	self.quat = odom_data.pose.pose.orientation
+	_, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
+	self.theta = [theta_t, theta_t * 180 / math.pi]
+	self.makemove()
 
     def depthCallBack(self, d_im):
         try:
@@ -134,7 +134,7 @@ class TrajectoryFollower:
 		if str(cur_tag_id) in self.G_tags.keys():
 		        landmark_pose = self.tag_msg[i].pose.pose.position
 		        lx = landmark_pose.z
-		        ly = landmark_pose.x
+		        ly = -landmark_pose.x
 		        pl = array([lx, ly]).reshape(2,1)
 		        tag_poses.append(pl)
 		        tag_orients.append(self.tag_msg[i].pose.pose.orientation)
@@ -150,31 +150,59 @@ class TrajectoryFollower:
         self.pos[1] = X[1]
         self.theta[0], self.theta[1] = X[2], X[2] * 180 / math.pi
         self.P = P
-	#print ('Current state: ', self.pos[0:2], self.theta[1])
+	if not self.initialized:	
+		#self.target[0], self.target[1] = self.setpoints.pop(0)
+		#self.target_bearing = (self.target-self.pos)
+                #theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
+                #self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
+		#print (self.target_theta)
+		self.initialized = True
+		self.target_theta = [0.0, 0.0]
+		self.theta_dis = self.theta[1] - self.target_theta[1]
+		turn_val = np.abs(math.radians(self.theta_dis))
+		for x in range(0, 10):
+			base_cmd = Twist()
+			base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
+			self.cmd_pub.publish(base_cmd)
+			self.r.sleep()
+		self.curr_sp_ptr = 1
+
+	print ('Current state: ', self.pos[0:2], self.theta[1])
+
+
+
 
     def makemove(self):
-        if self.curr_sp_ptr<9:
+        if (self.curr_sp_ptr<9 and self.initialized):
             # calculate control input
             self.target_bearing = (self.target-self.pos)
             self.target_dis = np.linalg.norm(self.target_bearing)
             self.theta_dis = self.theta[1] - self.target_theta[1] # in degrees 
-            #print (self.target, round(self.target_dis, 2), round(self.theta_dis, 2))
+	    print (self.target, round(self.target_dis, 2), round(self.theta_dis, 2))
             base_cmd = Twist()
 
             # turning
             if self.curr_sp_ptr==1:
-                if np.abs(self.theta_dis) > 2:
-                    #print(self.target_theta)
-                    base_cmd.angular.z = -np.sign(self.theta_dis)*min(0.2, np.abs(math.radians(self.theta_dis)))
+		if np.abs(self.theta_dis) > 1:
+		        if np.abs(self.theta_dis) > 10:
+		            turn_val = min(0.5, max(0.2, np.abs(math.radians(self.theta_dis))))
+			    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
+			else:
+			    turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
+			    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
                 else:
                     #print("here with ", np.abs(self.theta_dis))
                     self.curr_sp_ptr = 2
 
             else:
-                if(self.curr_sp_ptr==2 or np.abs(self.target_dis) > 0.05):
+                if(self.curr_sp_ptr==2 or np.abs(self.target_dis) > 0.1):
                     base_cmd.linear.x = min(0.2, self.target_dis)
-                    base_cmd.angular.z = -np.sign(self.theta_dis)*min(0.01, np.abs(math.radians(self.theta_dis)))
-                    #print(base_cmd.linear.x, base_cmd.angular.z)
+		    if np.abs(self.theta_dis) > 10: 
+			    turn_val = min(0.5, max(0.2, np.abs(math.radians(self.theta_dis))))
+		    else:
+			    turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
+                    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
+                    print(base_cmd.linear.x, base_cmd.angular.z)
                     self.curr_sp_ptr = 3
 
 
@@ -183,12 +211,12 @@ class TrajectoryFollower:
                         self.curr_sp_ptr = 9
                     else:
                         self.target[0], self.target[1] = self.setpoints.pop(0)
-                        self.target_bearing = (self.target-self.pos)
-                        theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
-                        self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
+                	self.target_bearing = (self.target-self.pos)
+                	theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
+                	self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
                         rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
                         self.curr_sp_ptr = 1
-            #self.cmd_pub.publish(base_cmd)
+            self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
     def showFrame(self, frame, name):
