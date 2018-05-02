@@ -160,11 +160,7 @@ class TrajectoryFollower:
 		self.target_theta = [0.0, 0.0]
 		self.theta_dis = self.theta[1] - self.target_theta[1]
 		turn_val = np.abs(math.radians(self.theta_dis))
-		for x in range(0, 10):
-			base_cmd = Twist()
-			base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
-			self.cmd_pub.publish(base_cmd)
-			self.r.sleep()
+		print (turn_val, self.theta[1])
 		self.curr_sp_ptr = 1
 
 	print ('Current state: ', self.pos[0:2], self.theta[1])
@@ -185,7 +181,7 @@ class TrajectoryFollower:
             if self.curr_sp_ptr==1:
 		if np.abs(self.theta_dis) > 1:
 		        if np.abs(self.theta_dis) > 10:
-		            turn_val = min(0.5, max(0.2, np.abs(math.radians(self.theta_dis))))
+		            turn_val = min(0.5, max(0.5, np.abs(math.radians(self.theta_dis))))
 			    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
 			else:
 			    turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
@@ -198,7 +194,7 @@ class TrajectoryFollower:
                 if(self.curr_sp_ptr==2 or np.abs(self.target_dis) > 0.1):
                     base_cmd.linear.x = min(0.2, self.target_dis)
 		    if np.abs(self.theta_dis) > 10: 
-			    turn_val = min(0.5, max(0.2, np.abs(math.radians(self.theta_dis))))
+			    turn_val = min(0.5, max(0.5, np.abs(math.radians(self.theta_dis))))
 		    else:
 			    turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
                     base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val

@@ -20,6 +20,7 @@ class TrajectoryFollower:
 
 		self.bench_test, self.publish_image = True, False
 		rospy.init_node('turtle_follower', anonymous=True)
+		self.r = rospy.Rate(10)
 
 		self.bridge = CvBridge()
 		im_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.imageCallBack, queue_size=5)
@@ -34,11 +35,11 @@ class TrajectoryFollower:
 			self.ProcessedRaw = rospy.Publisher('/follow/out_image', Image, queue_size=5)
 
 		self.pos, self.theta = np.zeros(3), 0.0
-		self.traj_file = open("src/behavior_cloning/data/cmds.txt", "r")
+		self.traj_file = open("src/behavior_cloning/data/tra_polygon.txt", "r")
 		self.curr_time = rospy.Time.now()
 		self.makemove()
 
-		self.r = rospy.Rate(10)
+		
 		try:
 			rospy.spin()
 		except KeyboardInterrupt:
@@ -119,7 +120,7 @@ class TrajectoryFollower:
 			base_cmd = Twist()
 			base_cmd.linear.x = v_x
 			base_cmd.angular.z = theta
-			#self.cmd_pub.publish(base_cmd)
+			self.cmd_pub.publish(base_cmd)
 			self.r.sleep()
 
 
