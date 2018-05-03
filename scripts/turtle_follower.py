@@ -58,9 +58,8 @@ class TrajectoryFollower:
         self.sp_file = open("src/behavior_cloning/data/setpoints.txt", "r")
 	self.setpoints = []
         self.getSetpoints()
-	self.curr_sp_ptr = 10
 
-	self.time_th = 0.01
+	self.time_th = 0.1
         self.last_landmark_time = rospy.Time.now()
 	self.tag_poses, self.tag_orients, self.tag_ids, self.tag_globals = [], [], [], []
 
@@ -73,6 +72,9 @@ class TrajectoryFollower:
         self.cmd_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=5)
 	self.odometry_only = False
 	self.initialized = True
+	self.curr_sp_ptr = 3 # State == 3, load next target
+
+	self.err_hist = 999 
 
         try:
             rospy.spin()
@@ -92,9 +94,7 @@ class TrajectoryFollower:
             token_ = stream_[i].split(' ')
             s_p = (float(token_[0]), float(token_[1]))
             self.setpoints.append(s_p)
-        self.pos[0], self.pos[1] = self.setpoints.pop(0)
-        rospy.loginfo("Loaded setpoints %s", str(self.setpoints))
-        rospy.loginfo("initial pos: (%s, %s)", self.pos[0], self.pos[1])
+        rospy.loginfo("Loaded setpoints")
      
 
     # BGR image callback function
@@ -116,7 +116,7 @@ class TrajectoryFollower:
 	self.quat = odom_data.pose.pose.orientation
 	_, _, theta_t = euler_from_quaternion((self.quat.x, self.quat.y, self.quat.z, self.quat.w))
 	self.theta = [theta_t, theta_t * 180 / math.pi]
-	self.makemove()
+	self.PathPlanner()
 
 
     # Depth callback function
@@ -167,80 +167,87 @@ class TrajectoryFollower:
 
 
     def landmark_based_localization(self):
-        X, P = kalman_update(self.X, self.P, self.tag_poses, self.tag_globals, self.R)
+	curr_X = np.array([self.pos[0], self.pos[1], self.theta[0]]).reshape(3,1)
+	#print(curr_X, self.pos[0], self.pos)
+        X, _ = kalman_update(curr_X, self.P, self.tag_poses, self.tag_globals, self.R)
         X = X.ravel()
         self.pos[0], self.pos[1] = X[0], X[1]
         self.theta[0], self.theta[1] = X[2], X[2] * 180 / math.pi
-        self.P = P
-	if not self.initialized:	
-		#self.target[0], self.target[1] = self.setpoints.pop(0)
-		#self.target_bearing = (self.target-self.pos)
-                #theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
-                #self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
-		#print (self.target_theta)
-		self.initialized = True
-		self.target_theta = [0.0, 0.0]
-		self.theta_dis = self.theta[1] - self.target_theta[1]
-		turn_val = np.abs(math.radians(self.theta_dis))
-		self.curr_sp_ptr = 1
-	print('EKF update; state: ', self.pos[0:2], round(self.theta[1], 2))
+        #self.P = P
+	#print('EKF update; state: ', self.pos[0:2], round(self.theta[1], 2))
 
 
 
-    # drive the robot to reach next setpoint
-    def makemove(self):
+    # generate control signals to drive the robot (to reach next setpoint)
+    def PathPlanner(self):
 	if not self.odometry_only:
 	    curr_time = rospy.Time.now()
 	    if ((curr_time-self.last_landmark_time).to_sec() <= self.time_th):
 		self.landmark_based_localization()
 
-	print ("Robot pose :", self.pos[0:2], round(self.theta[1], 2), " Target: ", self.target)
+	pos_msg_show = str(round(self.pos[0],2))+','+ str(round(self.pos[1],2))+','+ str(round(self.theta[1], 2))
+	print ("Robot pose : ", pos_msg_show, " Target: ", self.target)
 
         if (self.curr_sp_ptr<9 and self.initialized):
-            # calculate control input
-            self.target_bearing = (self.target-self.pos)
-            self.target_dis = np.linalg.norm(self.target_bearing)
-            self.theta_dis = self.theta[1] - self.target_theta[1] # in degrees 
-	    print (self.target, round(self.target_dis, 2), round(self.theta_dis, 2))
-            base_cmd = Twist()
-
-            # turning
-            if self.curr_sp_ptr==1:
-		if np.abs(self.theta_dis) > 1:
-		        if np.abs(self.theta_dis) > 10:
-		            turn_val = min(0.5, max(0.5, np.abs(math.radians(self.theta_dis))))
-			    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
-			else:
-			    turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
-			    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
-                else:
-                    #print("here with ", np.abs(self.theta_dis))
-                    self.curr_sp_ptr = 2
-
-            else:
-                if(self.curr_sp_ptr==2 or np.abs(self.target_dis) > 0.1):
-                    base_cmd.linear.x = min(0.2, self.target_dis)
-		    if np.abs(self.theta_dis) > 10: 
-			    turn_val = min(0.5, max(0.5, np.abs(math.radians(self.theta_dis))))
-		    else:
-			    turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
-                    base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
-                    print(base_cmd.linear.x, base_cmd.angular.z)
-                    self.curr_sp_ptr = 3
-
-
-                else:
-                    if len(self.setpoints)==0:
+	    # we are still in the run
+	    if (self.curr_sp_ptr==3):
+		if len(self.setpoints)==0:
                         self.curr_sp_ptr = 9
-                    else:
-                        self.target[0], self.target[1] = self.setpoints.pop(0)
-                	self.target_bearing = (self.target-self.pos)
-                	theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
-                	self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
-                        rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
-                        self.curr_sp_ptr = 1
-            #self.cmd_pub.publish(base_cmd)
-            self.r.sleep()
+			print ("Last goal achieved")
+		else:
+			# need to load next target
+			self.target[0], self.target[1] = self.setpoints.pop(0)
+			self.target_bearing = (self.target-self.pos)
+			theta_temp = math.atan2(self.target_bearing[1], self.target_bearing[0])
+			self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
+			#sprint (self.target_bearing)
+			print("Loaded next target pos " + str(self.target)+ " angle: "+str(self.target_theta[1]))
+			if self.err_hist == 999:
+				self.curr_sp_ptr = 1
+			else:
+				self.curr_sp_ptr = 2
+
+	    if (self.curr_sp_ptr == 1 or self.curr_sp_ptr == 2):
+		# calculate control input
+		self.target_bearing = (self.target-self.pos)
+		self.target_dis = norm(self.target_bearing)
+		self.theta_dis = self.theta[1] - self.target_theta[1] # in degrees 
+		if (abs(self.theta_dis)>180):
+			self.theta_dis = self.theta_dis - 360
+		print (self.target, round(self.target_dis, 2), round(self.theta_dis, 2))
+		base_cmd = Twist()
+
+		vel_val, turn_val = 0, 0
+		if (self.curr_sp_ptr == 2): # turning
+			if (np.abs(self.theta_dis) > 7):
+				turn_val = min(0.5, max(0.5, np.abs(math.radians(self.theta_dis))))
+			elif(np.abs(self.theta_dis) > 0.5):
+				turn_val = min(0.5, max(0.1, np.abs(math.radians(self.theta_dis))))
+			else:
+				self.curr_sp_ptr = 1
+		else:		
+			if (np.abs(self.theta_dis) >= 10):
+				turn_val = min(0.5, max(0.5, np.abs(math.radians(self.theta_dis))))
+				vel_val = min(0.2, np.abs(self.target_dis))
+			else:
+				errr_reduction = np.abs(self.target_dis)-self.err_hist
+				if(np.abs(self.target_dis) < 0.5 and errr_reduction > 0.01):
+					vel_val = 0
+					print ("passing the line here; err reduc: ", errr_reduction)
+					self.curr_sp_ptr = 3
+				elif(np.abs(self.target_dis) > 0.01):
+					vel_val = min(0.2, np.abs(self.target_dis))
+					turn_val = min(0.5, max(0.05, np.abs(math.radians(self.theta_dis))))
+				else:
+					self.curr_sp_ptr = 3
+
+		base_cmd.linear.x = vel_val
+		base_cmd.angular.z = -np.sign(self.theta_dis)*turn_val
+		self.err_hist = np.abs(self.target_dis)
+          	
+		print ("publishing: "+str(base_cmd.linear.x)+' '+str(base_cmd.angular.z))
+            	self.cmd_pub.publish(base_cmd)
+            	self.r.sleep()
 
 
 	###   For bench testing with dataset images ###############################
