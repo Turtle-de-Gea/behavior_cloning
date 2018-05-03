@@ -24,7 +24,17 @@ import math
 
 # Our libraries
 from KF_update import kalman_update
+from pid import PID
 
+
+"""
+This class contain functionalities for cloning a trajectory behavior corresponding 
+to the set-points saved in data/setpoints.txt
+These set-points are supposed to be generated using Hough transform 
+on {x, y} odometry that were collected during the 'demonstration' step (in data/odoms.txt) 
+Our Hough transform is not perfect yet, so for testing purposes we are 
+using the waypoints manually provided in the setpoints.txt
+"""
 class TrajectoryFollower:
     def __init__(self):
         self.original, self.depth = None, None
@@ -71,6 +81,7 @@ class TrajectoryFollower:
         # construct X as is needed for input into SLAM functions
         return np.append(self.pos, self.theta[0]).reshape(3, 1)
 
+    # read the setpoints
     def getSetpoints(self):
         stream_ = self.sp_file.readlines()
         stream_ = [x.strip() for x in stream_]
@@ -83,6 +94,7 @@ class TrajectoryFollower:
         rospy.loginfo("initial pos: (%s, %s)", self.pos[0], self.pos[1])
      
 
+    # BGR image callback function
     def imageCallBack(self, rgb_im):
         try:
             im_array = self.bridge.imgmsg_to_cv2(rgb_im, "bgr8")
@@ -93,6 +105,8 @@ class TrajectoryFollower:
         else:
             self.original = np.array(im_array)
 
+
+    # Odometry callback function
     def OdometryCallback(self, odom_data):
 	self.pos[0] = odom_data.pose.pose.position.x
 	self.pos[1] = odom_data.pose.pose.position.y
@@ -101,6 +115,8 @@ class TrajectoryFollower:
 	self.theta = [theta_t, theta_t * 180 / math.pi]
 	self.makemove()
 
+
+    # Depth callback function
     def depthCallBack(self, d_im):
         try:
             d_array = self.bridge.imgmsg_to_cv2(d_im, "32FC1")
@@ -111,6 +127,9 @@ class TrajectoryFollower:
         else:
             self.depth = np.array(d_array)
 
+
+
+    # Tag callback function
     def tagPoseCallback(self, msg):
         if self.original is not None and self.depth is not None:
             if msg.markers!=[]:
@@ -125,6 +144,7 @@ class TrajectoryFollower:
             self.ProcessedRaw.publish(msg_frame)
 
 
+    # helper function to extract the tag poses
     def get_tag_poses(self):
         if self.tag_msg is not None:
             N_tags = len(self.tag_msg)
@@ -141,9 +161,6 @@ class TrajectoryFollower:
 		        tag_orients.append(self.tag_msg[i].pose.pose.orientation)
 		        tag_globals.append(array(self.G_tags[str(cur_tag_id)]).reshape(2,1))
 
-            #print("Found tags ", tag_ids)
-            #print("Tag globals ", tag_globals)
-            #print("Tag poses: ", tag_poses)
 
         X, P = kalman_update(self.X, self.P, tag_poses, tag_globals, self.R)
         X = X.ravel()
@@ -168,7 +185,7 @@ class TrajectoryFollower:
 
 
 
-
+    # drive the robot to reach next setpoint
     def makemove(self):
         if (self.curr_sp_ptr<9 and self.initialized):
             # calculate control input
@@ -216,9 +233,8 @@ class TrajectoryFollower:
             self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
-    def showFrame(self, frame, name):
-        cv2.imshow(name, frame)
-        cv2.waitKey(20)
 
-    
-
+	###   For bench testing with dataset images ###############################
+	def showFrame(self, frame, name):
+		cv2.imshow(name, frame)
+		cv2.waitKey(20)
