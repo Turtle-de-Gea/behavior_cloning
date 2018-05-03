@@ -8,20 +8,21 @@ import rospy
 import roslib
 from std_msgs.msg import String, Float32MultiArray
 from ar_track_alvar_msgs.msg import AlvarMarker, AlvarMarkers
+from tf.transformations import euler_from_quaternion
+from geometry_msgs.msg import Quaternion
 from sensor_msgs.msg import Image
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-import math
-from tf.transformations import euler_from_quaternion
-from geometry_msgs.msg import Quaternion
 from numpy import pi, array, sin, cos, eye, zeros, matrix, sqrt
 from scipy.stats import chi2
 from numpy.linalg import norm
-import numpy as np
 import matplotlib.pyplot as plt
 import time
+import math
+
+# Our libraries
 from KF_update import kalman_update
 
 class TrajectoryFollower:

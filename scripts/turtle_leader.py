@@ -76,7 +76,7 @@ class TrajectoryFinder:
 			msg_frame = CvBridge().cv2_to_imgmsg(self.original, encoding="bgr8")
 			self.ProcessedRaw.publish(msg_frame)
 
-
+	# See if the target tag is there, if so follow
 	def followTag_(self):
 		if self.tag_msg is not None:
 			N_tags = len(self.tag_msg)
