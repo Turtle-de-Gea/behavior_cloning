@@ -86,12 +86,13 @@ class TrajectoryFinder:
 				cur_tag_id = self.tag_msg[i].id
 				# only follow specific tag
 				if self.FollowTagID == cur_tag_id:
-					self.tag_pose, self.tag_orien = self.tag_msg[0].pose.pose.position, self.tag_msg[0].pose.pose.orientation
+					self.tag_pose = self.tag_msg[i].pose.pose.position
+					self.tag_orien = self.tag_msg[i].pose.pose.orientation
 					found_target_tag = True
 				tag_ids.append(cur_tag_id)
-			#print("Found tags ", tag_ids)
+			print("Found tags ", tag_ids)
 			if found_target_tag:
-				#print ("Found target tag: at ", self.tag_pose)
+				print ("Found target tag: at ", self.tag_pose)
 				self.makemove()
 
 
@@ -121,8 +122,9 @@ class TrajectoryFinder:
 	def makemove(self):
 		if self.tag_pose != None:
 			base_cmd = Twist()
-			base_cmd.linear.x = (self.tag_pose.z - 0.5)
-			base_cmd.angular.z = -self.tag_pose.x*4			
+			base_cmd.linear.x = min(0.3, (self.tag_pose.z - 0.5))
+			turn_val = -self.tag_pose.x*4
+			base_cmd.angular.z = np.sign(turn_val)* min(0.5, np.abs(turn_val))			
 			dt = (rospy.Time.now() - self.curr_time).to_sec()
 			self.curr_time = rospy.Time.now()
 			self.cmd_pub.publish(base_cmd)
