@@ -14,6 +14,11 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 
 
+"""
+This class contain functionalities for following a tag and recording the
+corresponding odometry data [x, y] as trajectory
+"""
+
 class TrajectoryFinder:
 	def __init__(self):
 		self.original, self.depth = None, None
@@ -84,7 +89,7 @@ class TrajectoryFinder:
 		#print self.pos
 		#turtle_y = odom_data.pose.pose.position.y
 		odo_info = str(self.pos[0]) + ' ' + str(self.pos[1]) + ' ' + str(self.pos[2])+'\n'
-		#self.odom_file.write(odo_info)
+		self.odom_file.write(odo_info)
 
 
 
@@ -111,7 +116,7 @@ class TrajectoryFinder:
 			#self.cmd_pub.publish(base_cmd)
 			tra_info = str(base_cmd.linear.x) + ' ' + str(base_cmd.angular.z) + ' ' + str(dt) + '\n'
 			print ('saving '+ tra_info)		
-			#self.saver_file.write(tra_info)
+			self.saver_file.write(tra_info)
 
 
 	###   For bench testing with dataset images ###############################
