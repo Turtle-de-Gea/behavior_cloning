@@ -42,7 +42,6 @@ class TrajectoryFollower:
         rospy.init_node('turtle_follower', anonymous=True)
         self.r = rospy.Rate(10)
 
-	self.initialized = False
         self.STATES = {'0':'INIT', '1':'TURNING', '2':'FINISHED_TURNING', '3':'MOVING', '9':'DONE'}
         self.G_tags = {'1': (1.777, 0.9755), '2': (2.0146, 0.8662),  '3': (2.5591, 0.5296),  '4': (2.5393, -1.0148), '5': (4.4995, 0.3613) }
 
@@ -57,8 +56,8 @@ class TrajectoryFollower:
         self.target, self.target_theta = zeros(2), [0.0, 0.0]
 
         self.sp_file = open("src/behavior_cloning/data/setpoints.txt", "r")
+	self.setpoints = []
         self.getSetpoints()
-        self.setpoints = []
 	self.curr_sp_ptr = 10
 
 	self.time_th = 0.01
@@ -72,6 +71,8 @@ class TrajectoryFollower:
         odom_sub = rospy.Subscriber("/odom", Odometry, self.OdometryCallback, queue_size=5)
 
         self.cmd_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=5)
+	self.odometry_only = False
+	self.initialized = True
 
         try:
             rospy.spin()
@@ -182,15 +183,18 @@ class TrajectoryFollower:
 		self.theta_dis = self.theta[1] - self.target_theta[1]
 		turn_val = np.abs(math.radians(self.theta_dis))
 		self.curr_sp_ptr = 1
-	print ('EKF update; state: ', self.pos[0:2], self.theta[1])
+	print('EKF update; state: ', self.pos[0:2], round(self.theta[1], 2))
 
 
 
     # drive the robot to reach next setpoint
     def makemove(self):
-	curr_time = rospy.Time.now()
-	if ((curr_time-self.last_landmark_time).to_sec() <= self.time_th):
+	if not self.odometry_only:
+	    curr_time = rospy.Time.now()
+	    if ((curr_time-self.last_landmark_time).to_sec() <= self.time_th):
 		self.landmark_based_localization()
+
+	print ("Robot pose :", self.pos[0:2], round(self.theta[1], 2), " Target: ", self.target)
 
         if (self.curr_sp_ptr<9 and self.initialized):
             # calculate control input
@@ -235,7 +239,7 @@ class TrajectoryFollower:
                 	self.target_theta =  [theta_temp, theta_temp * 180 / math.pi]
                         rospy.loginfo("Loaded next set-point (%s, %s) on angle %s", str(self.target[0]), str(self.target[1]), str(self.target_theta[1]))
                         self.curr_sp_ptr = 1
-            self.cmd_pub.publish(base_cmd)
+            #self.cmd_pub.publish(base_cmd)
             self.r.sleep()
 
 
