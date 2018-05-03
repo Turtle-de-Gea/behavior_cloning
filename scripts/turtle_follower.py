@@ -41,20 +41,10 @@ class TrajectoryFollower:
         self.bench_test, self.publish_image = False, False
         rospy.init_node('turtle_follower', anonymous=True)
         self.r = rospy.Rate(10)
-        self.i = 0
-        self.vel = 0.2 # 2 m/s linear veocity
-        self.STATES = {'0':'INIT', '1':'TURNING', '2':'FINISHED_TURNING', '3':'MOVING', '9':'DONE'}
+
 	self.initialized = False
+        self.STATES = {'0':'INIT', '1':'TURNING', '2':'FINISHED_TURNING', '3':'MOVING', '9':'DONE'}
         self.G_tags = {'1': (1.777, 0.9755), '2': (2.0146, 0.8662),  '3': (2.5591, 0.5296),  '4': (2.5393, -1.0148), '5': (4.4995, 0.3613) }
-
-        self.bridge = CvBridge()
-        im_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.imageCallBack, queue_size=5)
-        depth_sub = rospy.Subscriber('/camera/depth/image_raw', Image, self.depthCallBack, queue_size=5)
-        tag_pose_sub = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, self.tagPoseCallback, queue_size=5)
-        odom_sub = rospy.Subscriber("/odom", Odometry, self.OdometryCallback, queue_size=5)
-
-        self.target_pub = rospy.Publisher('target_info', String, queue_size=5)
-        self.cmd_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=5)
 
         if self.publish_image:
             self.ProcessedRaw = rospy.Publisher('/follow/out_image', Image, queue_size=5)
@@ -65,12 +55,24 @@ class TrajectoryFollower:
         self.P = 0.01*eye(3)  # state uncertainty
         self.R = array([[0.01, 0.001], [0.001, 0.01]])  # Measurement noise
         self.target, self.target_theta = zeros(2), [0.0, 0.0]
-        self.setpoints = []
-        self.sp_file = open("src/behavior_cloning/data/setpoints.txt", "r")
-        self.curr_sp_ptr = 10
-        self.getSetpoints()
 
-        self.curr_time = rospy.Time.now()
+        self.sp_file = open("src/behavior_cloning/data/setpoints.txt", "r")
+        self.getSetpoints()
+        self.setpoints = []
+	self.curr_sp_ptr = 10
+
+	self.time_th = 0.01
+        self.last_landmark_time = rospy.Time.now()
+	self.tag_poses, self.tag_orients, self.tag_ids, self.tag_globals = [], [], [], []
+
+        self.bridge = CvBridge()
+        im_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.imageCallBack, queue_size=5)
+        depth_sub = rospy.Subscriber('/camera/depth/image_raw', Image, self.depthCallBack, queue_size=5)
+        tag_pose_sub = rospy.Subscriber("/ar_pose_marker", AlvarMarkers, self.tagPoseCallback, queue_size=5)
+        odom_sub = rospy.Subscriber("/odom", Odometry, self.OdometryCallback, queue_size=5)
+
+        self.cmd_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=5)
+
         try:
             rospy.spin()
         except KeyboardInterrupt:
@@ -148,24 +150,25 @@ class TrajectoryFollower:
     def get_tag_poses(self):
         if self.tag_msg is not None:
             N_tags = len(self.tag_msg)
-            tag_poses, tag_orients, tag_ids, tag_globals = [], [], [], []
+            self.tag_poses, self.tag_orients, self.tag_ids, self.tag_globals = [], [], [], []
             for i in xrange(N_tags):
 		cur_tag_id = self.tag_msg[i].id
-		tag_ids.append(cur_tag_id)
+		self.tag_ids.append(cur_tag_id)
 		if str(cur_tag_id) in self.G_tags.keys():
 		        landmark_pose = self.tag_msg[i].pose.pose.position
 		        lx = landmark_pose.z
 		        ly = -landmark_pose.x
 		        pl = array([lx, ly]).reshape(2,1)
-		        tag_poses.append(pl)
-		        tag_orients.append(self.tag_msg[i].pose.pose.orientation)
-		        tag_globals.append(array(self.G_tags[str(cur_tag_id)]).reshape(2,1))
+		        self.tag_poses.append(pl)
+		        self.tag_orients.append(self.tag_msg[i].pose.pose.orientation)
+		        self.tag_globals.append(array(self.G_tags[str(cur_tag_id)]).reshape(2,1))
+	    self.last_landmark_time = rospy.Time.now()
 
 
-        X, P = kalman_update(self.X, self.P, tag_poses, tag_globals, self.R)
+    def landmark_based_localization(self):
+        X, P = kalman_update(self.X, self.P, self.tag_poses, self.tag_globals, self.R)
         X = X.ravel()
-        self.pos[0] = X[0]
-        self.pos[1] = X[1]
+        self.pos[0], self.pos[1] = X[0], X[1]
         self.theta[0], self.theta[1] = X[2], X[2] * 180 / math.pi
         self.P = P
 	if not self.initialized:	
@@ -178,15 +181,17 @@ class TrajectoryFollower:
 		self.target_theta = [0.0, 0.0]
 		self.theta_dis = self.theta[1] - self.target_theta[1]
 		turn_val = np.abs(math.radians(self.theta_dis))
-		print (turn_val, self.theta[1])
 		self.curr_sp_ptr = 1
-
-	print ('Current state: ', self.pos[0:2], self.theta[1])
+	print ('EKF update; state: ', self.pos[0:2], self.theta[1])
 
 
 
     # drive the robot to reach next setpoint
     def makemove(self):
+	curr_time = rospy.Time.now()
+	if ((curr_time-self.last_landmark_time).to_sec() <= self.time_th):
+		self.landmark_based_localization()
+
         if (self.curr_sp_ptr<9 and self.initialized):
             # calculate control input
             self.target_bearing = (self.target-self.pos)
