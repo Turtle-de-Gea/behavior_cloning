@@ -55,7 +55,7 @@ class TrajectoryFollower:
         self.R = array([[0.01, 0.001], [0.001, 0.01]])  # Measurement noise
         self.target, self.target_theta = zeros(2), [0.0, 0.0]
         self.setpoints = []
-        self.sp_file = open("src/behavior_cloning/data/pol.txt", "r")
+        self.sp_file = open("src/behavior_cloning/data/setpoints.txt", "r")
         self.curr_sp_ptr = 10
         self.getSetpoints()
 
