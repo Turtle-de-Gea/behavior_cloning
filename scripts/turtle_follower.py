@@ -112,7 +112,7 @@ class TrajectoryFollower:
 
     def tagPoseCallback(self, msg):
         if self.original is not None and self.depth is not None:
-            if msg.markers:
+            if msg.markers!=[]:
                 self.tag_msg = msg.markers
                 self.get_tag_poses()
 
