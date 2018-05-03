@@ -15,13 +15,13 @@ import numpy as np
 
 
 """
-This class contain functionalities for following a tag (tag 0 by default)
+This class contain functionalities for following a tag (tag 20 by default)
 It records the odometry information [x, y] while following
 This data is used by the robot while behavior cloning
 """
 class TrajectoryFinder:
 	def __init__(self):
-		self.FollowTagID = 0 # which tag to follow
+		self.FollowTagID = 20 # which tag to follow
 		self.original, self.depth = None, None
 		self.bench_test, self.publish_image = True, False
 		rospy.init_node('turtle_leader', anonymous=True)
@@ -122,7 +122,8 @@ class TrajectoryFinder:
 	def makemove(self):
 		if self.tag_pose != None:
 			base_cmd = Twist()
-			base_cmd.linear.x = min(0.3, (self.tag_pose.z - 0.5))
+			vel_val = (self.tag_pose.z - 0.5)
+			base_cmd.linear.x = np.sign(vel_val)*min(0.2, np.abs(vel_val))
 			turn_val = -self.tag_pose.x*4
 			base_cmd.angular.z = np.sign(turn_val)* min(0.5, np.abs(turn_val))			
 			dt = (rospy.Time.now() - self.curr_time).to_sec()
